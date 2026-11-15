@@ -277,59 +277,66 @@ function drawHill(ri,t){
 
 /* ---------- realistic bluebell florets, pre-rendered once ---------- */
 function makeFloret(c){
-  const R=3, cv2=document.createElement("canvas"); cv2.width=100*R; cv2.height=140*R;
-  const g=cv2.getContext("2d"); g.scale(R,R);
-  // calyx / attachment
-  g.fillStyle=c.calyx; g.beginPath(); g.ellipse(50,10,6,5,0,0,6.29); g.fill();
-  // body
-  const body=new Path2D("M42,9 C32,24 27,52 26,84 C25,95 22,100 16,105 L84,105 C78,100 75,95 74,84 C73,52 68,24 58,9 Z");
-  let lg=g.createLinearGradient(25,0,75,0);
-  lg.addColorStop(0,c.dark); lg.addColorStop(.28,c.mid); lg.addColorStop(.42,c.light); lg.addColorStop(.62,c.mid); lg.addColorStop(1,c.dark);
-  g.fillStyle=lg; g.fill(body);
-  let vg=g.createLinearGradient(0,8,0,105); vg.addColorStop(0,c.top); vg.addColorStop(.45,"rgba(0,0,0,0)"); vg.addColorStop(1,"rgba(0,0,0,.12)");
-  g.fillStyle=vg; g.fill(body);
-  // veins
-  g.strokeStyle="rgba(255,255,255,.13)"; g.lineWidth=.7;
-  [[46,36,98],[50,50,100],[54,64,98],[42,30,97],[58,70,97]].forEach(([x0,x1])=>{g.beginPath();g.moveTo(x0,14);g.quadraticCurveTo((x0+x1)/2,60,x1,99);g.stroke();});
-  // gloss highlight
-  g.strokeStyle="rgba(255,255,255,.35)"; g.lineWidth=2.2; g.lineCap="round";
-  g.beginPath(); g.moveTo(41,22); g.bezierCurveTo(37,45,35,66,35,86); g.stroke();
-  // dark throat
-  g.fillStyle=c.throat; g.beginPath(); g.ellipse(50,105,29,6.5,0,0,6.29); g.fill();
-  // back tepals
-  const lobe=(cx,d,len,col)=>{ const L=new Path2D(`M${cx-9},101 Q${cx-6+d*5},${112+len*.3} ${cx+d*(9+len*.5)},${114+len} Q${cx+d*(15+len*.6)},${113+len*.6} ${cx+d*(15+len*.4)},${107+len*.3} Q${cx+d*6},${106} ${cx+9},101 Z`);
-    const gg=g.createLinearGradient(0,100,0,118+len); gg.addColorStop(0,col); gg.addColorStop(1,c.tip);
-    g.fillStyle=gg; g.fill(L); g.strokeStyle="rgba(255,255,255,.22)"; g.lineWidth=.6; g.stroke(L); };
-  lobe(34,-.5,2,c.dark); lobe(66,.5,2,c.dark);
-  // stamens
-  g.fillStyle="#f4ecc8"; [[44,108],[50,110],[56,108]].forEach(([x,y])=>{g.beginPath();g.ellipse(x,y,1.6,2.4,0,0,6.29);g.fill();});
-  // front tepals, recurving outward
-  lobe(21,-1,5,c.mid); lobe(79,1,5,c.mid); lobe(41,-.35,7,c.mid); lobe(59,.35,7,c.mid);
+  // a bell built from six tepals, like the real flower: back ones darker, front ones lit
+  const R=3, cv2=document.createElement("canvas"); cv2.width=100*R; cv2.height=110*R;
+  const g=cv2.getContext("2d"); g.scale(R,R); g.lineCap="round";
+  const tepal=(u,front)=>{
+    const a=Math.abs(u), sg=u<0?-1:u>0?1:0, f=1-a*.35;
+    const c0=[50+u*8,8], c1=[50+u*22,34], c2=[50+u*24,70], tp=[50+u*30+sg*a*15, 85-a*14];
+    const w0=6*f, w1=12*f, w2=12*f, tw=8.5*f;
+    const P=new Path2D(`M${c0[0]-w0},${c0[1]} C${c1[0]-w1},${c1[1]} ${c2[0]-w2},${c2[1]-8} ${c2[0]-w2},${c2[1]}
+      Q${tp[0]-tw},${tp[1]-1} ${tp[0]},${tp[1]+4} Q${tp[0]+tw},${tp[1]-1} ${c2[0]+w2},${c2[1]}
+      C${c2[0]+w2},${c2[1]-8} ${c1[0]+w1},${c1[1]} ${c0[0]+w0},${c0[1]} Z`);
+    const lg=g.createLinearGradient(c1[0]-w1-4,0,c1[0]+w1+4,0);
+    const edge=front?c.mid:c.dark, core=front?c.light:c.mid;
+    lg.addColorStop(0,c.dark); lg.addColorStop(.3,edge); lg.addColorStop(.5,core); lg.addColorStop(.7,edge); lg.addColorStop(1,c.dark);
+    g.fillStyle=lg; g.fill(P);
+    const vg=g.createLinearGradient(0,6,0,92); vg.addColorStop(0,c.top); vg.addColorStop(.4,"rgba(0,0,0,0)"); vg.addColorStop(.85,"rgba(255,255,255,0)"); vg.addColorStop(1,front?"rgba(255,255,255,.18)":"rgba(0,0,0,.1)");
+    g.fillStyle=vg; g.fill(P);
+    // midvein
+    g.strokeStyle=c.vein; g.lineWidth=.6;
+    g.beginPath(); g.moveTo(...c0); g.bezierCurveTo(c1[0],c1[1],c2[0],c2[1]-8,c2[0],c2[1]); g.quadraticCurveTo(tp[0]-sg*2,tp[1]-2,tp[0],tp[1]+2); g.stroke();
+    // rolled-back tip catching light
+    g.strokeStyle=c.tip; g.globalAlpha=.55; g.lineWidth=1.1;
+    g.beginPath(); g.moveTo(tp[0]-tw*.7,tp[1]); g.quadraticCurveTo(tp[0],tp[1]+5,tp[0]+tw*.7,tp[1]); g.stroke();
+    g.globalAlpha=1; g.strokeStyle="rgba(255,255,255,.14)"; g.lineWidth=.5; g.stroke(P);
+  };
+  [-.85,-.3,.3,.85].forEach(u=>tepal(u,false));
+  // throat with stamens
+  g.fillStyle=c.throat; g.beginPath(); g.ellipse(50,74,22,5.5,0,0,6.29); g.fill();
+  g.fillStyle="#efe6c4"; [[44,76],[50,78],[56,76]].forEach(([x,y])=>{g.beginPath();g.ellipse(x,y,1.4,2.4,0,0,6.29);g.fill();});
+  [-.58,0,.58].forEach(u=>tepal(u,true));
+  // highlight sheen on the front
+  g.strokeStyle="rgba(255,255,255,.3)"; g.lineWidth=2; g.beginPath(); g.moveTo(44,14); g.bezierCurveTo(40,34,38,52,38,66); g.stroke();
+  g.fillStyle=c.dark; g.beginPath(); g.ellipse(50,7,6,3.6,0,0,6.29); g.fill();
   return cv2;
 }
 function makeBud(c){
-  const R=3, cv2=document.createElement("canvas"); cv2.width=60*R; cv2.height=80*R;
+  const R=3, cv2=document.createElement("canvas"); cv2.width=40*R; cv2.height=80*R;
   const g=cv2.getContext("2d"); g.scale(R,R);
-  const p=new Path2D("M30,6 C22,18 18,40 20,58 C22,70 38,70 40,58 C42,40 38,18 30,6 Z");
-  const lg=g.createLinearGradient(18,0,42,0); lg.addColorStop(0,c.dark); lg.addColorStop(.4,c.light); lg.addColorStop(1,c.dark);
+  const p=new Path2D("M20,4 C12,12 9,32 10,52 C11,66 16,74 20,76 C24,74 29,66 30,52 C31,32 28,12 20,4 Z");
+  const lg=g.createLinearGradient(11,0,29,0); lg.addColorStop(0,c.throat); lg.addColorStop(.45,c.mid); lg.addColorStop(1,c.throat);
   g.fillStyle=lg; g.fill(p);
-  const vg=g.createLinearGradient(0,6,0,40); vg.addColorStop(0,c.calyx); vg.addColorStop(1,"rgba(0,0,0,0)"); g.fillStyle=vg; g.fill(p);
-  g.strokeStyle="rgba(255,255,255,.3)"; g.lineWidth=1.2; g.beginPath(); g.moveTo(26,20); g.quadraticCurveTo(23,38,24,54); g.stroke();
+  g.strokeStyle=c.vein; g.lineWidth=.7; [[16,62],[20,74],[24,62]].forEach(([x,y])=>{g.beginPath();g.moveTo(20,8);g.quadraticCurveTo(x,40,x,y);g.stroke();});
+  g.strokeStyle="rgba(255,255,255,.35)"; g.lineWidth=1.2; g.beginPath(); g.moveTo(17,18); g.quadraticCurveTo(15,40,16,58); g.stroke();
   return cv2;
 }
-const BLUE={dark:"#26247a",mid:"#4c4fc9",light:"#9296f0",top:"rgba(70,30,110,.55)",throat:"#141244",tip:"#a7abf6",calyx:"#3b5a3f"};
-const WINE={dark:"#4d0f27",mid:"#93355b",light:"#e7a6bf",top:"rgba(70,10,35,.5)",throat:"#2a0614",tip:"#f4c6d6",calyx:"#3b5a3f"};
+const BLUE={dark:"#26189a",mid:"#4f42e0",light:"#b3adff",top:"rgba(60,20,140,.45)",throat:"#160c5c",tip:"#9089f6",stripe:"rgba(215,210,255,.32)",vein:"rgba(30,12,110,.45)"};
+const WINE={dark:"#4d0f27",mid:"#94355c",light:"#ebaac2",top:"rgba(70,10,35,.45)",throat:"#2a0614",tip:"#e9a3bd",stripe:"rgba(255,215,228,.3)",vein:"rgba(60,8,28,.45)"};
 const SPR={blue:makeFloret(BLUE),wine:makeFloret(WINE),budBlue:makeBud(BLUE),budWine:makeBud(WINE)};
 
 function bz(t,a,b,c,d){const u=1-t;return[u*u*u*a[0]+3*u*u*t*b[0]+3*u*t*t*c[0]+t*t*t*d[0],u*u*u*a[1]+3*u*u*t*b[1]+3*u*t*t*c[1]+t*t*t*d[1]];}
 
 function drawLeaf(x,gy,d,L,w,lift,col){
+  const tx=x+d*L*.8, ty=gy-L*lift*.45, cx1=x+d*L*.25, cy1=gy-L*lift;
   ctx.beginPath(); ctx.moveTo(x-w*.5,gy);
-  ctx.quadraticCurveTo(x+d*L*.25,gy-L*lift,x+d*L*.8,gy-L*lift*.45);
+  ctx.quadraticCurveTo(cx1,cy1,tx,ty);
   ctx.quadraticCurveTo(x+d*L*.3,gy-L*lift*.8+w,x+w*.5,gy);
-  const lg=ctx.createLinearGradient(x,gy,x+d*L*.8,gy-L*lift);
-  lg.addColorStop(0,"#16331f"); lg.addColorStop(.5,col); lg.addColorStop(1,"#1d3e27");
+  const lg=ctx.createLinearGradient(x,gy,tx,cy1);
+  lg.addColorStop(0,"#163a22"); lg.addColorStop(.55,col); lg.addColorStop(1,"#24502f");
   ctx.fillStyle=lg; ctx.fill();
+  ctx.strokeStyle="rgba(200,240,200,.22)"; ctx.lineWidth=.8;
+  ctx.beginPath(); ctx.moveTo(x,gy); ctx.quadraticCurveTo(cx1,cy1+w*.4,tx,ty); ctx.stroke();
 }
 
 function drawFlower(f,t){
@@ -337,36 +344,35 @@ function drawFlower(f,t){
   const dim=f.row/ (ROWS.length-1); // nearer rows a touch brighter
   // leaves
   drawLeaf(x,gy,-d,h*.55,5*s,.55,"#2f6a3f"); drawLeaf(x,gy,d,h*.45,4.5*s,.7,"#3a7a4a"); drawLeaf(x,gy,-d*.6,h*.35,4*s,.9,"#2c5f39");
-  // arching stem
-  const p0=[x,gy], p1=[x+sw*s,gy-.72*h], p2=[x+d*.2*h+sw*4*s,gy-1.04*h], p3=[x+d*.42*h+sw*7*s,gy-.86*h];
+  // stem: upright, nodding only near the top
+  const p0=[x,gy], p1=[x+sw*s,gy-.6*h], p2=[x+d*.06*h+sw*3*s,gy-1.1*h], p3=[x+d*.3*h+sw*6*s,gy-.97*h];
   ctx.lineCap="round";
-  ctx.strokeStyle="#2e5c3a"; ctx.lineWidth=3*s;
+  ctx.strokeStyle="#3d7348"; ctx.lineWidth=3*s;
   ctx.beginPath(); ctx.moveTo(...p0); ctx.bezierCurveTo(...p1,...p2,...p3); ctx.stroke();
-  ctx.strokeStyle="rgba(150,200,160,.45)"; ctx.lineWidth=1*s;
-  ctx.beginPath(); ctx.moveTo(p0[0]-.8*s,p0[1]); ctx.bezierCurveTo(p1[0]-.8*s,p1[1],p2[0],p2[1]-.8*s,p3[0],p3[1]-.6*s); ctx.stroke();
+  ctx.strokeStyle="rgba(190,235,190,.35)"; ctx.lineWidth=.9*s;
+  ctx.beginPath(); ctx.moveTo(p0[0]-.9*s,p0[1]); ctx.bezierCurveTo(p1[0]-.9*s,p1[1],p2[0]-.6*s,p2[1],p3[0],p3[1]-.6*s); ctx.stroke();
   // glow behind the cluster
-  const mid=bz(.78,p0,p1,p2,p3), gx=mid[0]+d*8*s, gyy=mid[1]+22*s;
+  const mid=bz(.72,p0,p1,p2,p3), gx=mid[0], gyy=mid[1]+14*s;
   const pulse=.5+.5*Math.sin(t*.002+f.ph);
-  const ga=f.found ? .2+finaleGlow*.2 : .1+pulse*.12;
-  const rg=ctx.createRadialGradient(gx,gyy,0,gx,gyy,60*s);
+  const ga=f.found ? .2+finaleGlow*.2 : .09+pulse*.11;
+  const rg=ctx.createRadialGradient(gx,gyy,0,gx,gyy,64*s);
   rg.addColorStop(0,f.found?`rgba(240,150,180,${ga})`:`rgba(170,175,255,${ga})`); rg.addColorStop(1,"rgba(0,0,0,0)");
-  ctx.fillStyle=rg; ctx.beginPath(); ctx.arc(gx,gyy,60*s,0,6.29); ctx.fill();
-  // florets: tip (buds) first, big lower bells last so they sit in front
+  ctx.fillStyle=rg; ctx.beginPath(); ctx.arc(gx,gyy,64*s,0,6.29); ctx.fill();
+  // florets on hooked pedicels, alternating sides; buds at the tip
   const spr=f.found?SPR.wine:SPR.blue, bud=f.found?SPR.budWine:SPR.budBlue;
-  const N=7; let sx=0,sy=0,cnt=0;
+  const N=8; let sx=0,sy=0,cnt=0;
   for(let i=N-1;i>=0;i--){
-    const tt=.4+i*(.6/(N-1)), P=bz(tt,p0,p1,p2,p3);
-    const isBud=i>=N-2, size=isBud?(i===N-1?.34:.46):(1-i*.09);
-    const A=[P[0]+d*4*s, P[1]+7*s*size];
-    ctx.strokeStyle="#2f5f3c"; ctx.lineWidth=1.3*s;
-    ctx.beginPath(); ctx.moveTo(P[0],P[1]); ctx.quadraticCurveTo(P[0]+d*4*s*size,P[1]-2*s,A[0],A[1]); ctx.stroke();
-    const k=size*.32*s*(1+f.pop*.15);
+    const tt=.38+i*(.62/(N-1)), P=bz(tt,p0,p1,p2,p3);
+    const isBud=i>=N-2, side=(i%2?1:-1)*d, size=isBud?(i===N-1?.8:.95):(1-i*.06);
+    const reach=(isBud?5:11)*s*size, lift=(isBud?4:9)*s*size;
+    const A=isBud?[P[0]+side*reach,P[1]-lift]:[P[0]+side*reach,P[1]+1.5*s];
+    ctx.strokeStyle="#3a6e45"; ctx.lineWidth=1.25*s;
+    ctx.beginPath(); ctx.moveTo(P[0],P[1]); ctx.quadraticCurveTo(P[0]+side*reach*.7,P[1]-lift,A[0],A[1]); ctx.stroke();
     ctx.save(); ctx.translate(A[0],A[1]);
-    ctx.rotate(d*.04 + sw2*.05 + (i%2?.03:-.03));
-    ctx.scale(k,k);
-    if(isBud) ctx.drawImage(bud,-30,-4,60,80); else ctx.drawImage(spr,-50,-8,100,140);
+    if(isBud){ ctx.rotate(Math.PI+side*(.65+sw2*.08)); const kb=size*.26*s; ctx.scale(kb,kb); ctx.drawImage(bud,-20,-4,40,80); }
+    else { const k=size*.3*s*(1+f.pop*.15); ctx.rotate(side*.06+sw2*.06); ctx.scale(k,k); ctx.drawImage(spr,-50,-4,100,110);
+      sx+=A[0]; sy+=A[1]+45*k; cnt++; }
     ctx.restore();
-    if(!isBud){ sx+=A[0]; sy+=A[1]+55*k; cnt++; }
   }
   f.cx=sx/cnt; f.cy=sy/cnt; f.hr=Math.max(46,72*s);
   f.pop*=.9;
