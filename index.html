@@ -104,7 +104,7 @@
 
 <canvas id="garden"></canvas>
 <div id="counter"></div>
-<div id="hint">touch a bluebell</div>
+<div id="hint">catch a falling bluebell</div>
 <button id="sound" aria-label="toggle sound">sound on</button>
 
 <!-- intro -->
@@ -112,7 +112,7 @@
   <div class="intro">
     <div class="for">for my</div>
     <h1 class="script">Bluebell</h1>
-    <p>There's a little garden here with nineteen bluebells in it. Each one is holding a moment I'm thankful for.</p>
+    <p>Nineteen bluebells will fall from this sky, one for every moment I'm thankful for. Catch them as they drift down.</p>
     <button class="soft-btn" id="enter">step inside</button>
     <span class="tiny">turn your sound on, softly</span>
   </div>
@@ -234,10 +234,11 @@ const ROWS_M=[{n:5,g:.60,s:.7, h:.12,col:"#4f4180",stem:"rgba(140,180,160,.5)"},
             {n:4,g:.93,s:1,  h:.17,col:"#211a42",stem:"rgba(150,195,165,.85)"}];
 let ROWS=ROWS_D;
 
-/* stable flower seeds; rows and positions are set in layout() */
-const order=[...REASONS.keys()].sort(()=>Math.random()-.5);
-const flowers=order.map(idx=>({idx,jx:Math.random()*.24-.12,hj:.88+Math.random()*.24,gj:Math.random()*.015,
-  dir:Math.random()<.5?-1:1,ph:Math.random()*6.28,found:false,lang:-1,pop:0}));
+/* falling bluebells: one per memory */
+const langOf={};               // memory index -> order it was caught in
+let drops=[], queue=[], lastSpawn=-9999, lastT=0, finaleShown2=false;
+function refill(all){ queue=[...REASONS.keys()].filter(i=>all||!(i in langOf)&&!drops.some(d=>d.idx===i)).sort(()=>Math.random()-.5); }
+refill(false);
 
 function layout(){
   DPR=Math.min(window.devicePixelRatio||1,2); W=innerWidth; H=innerHeight;
@@ -247,18 +248,13 @@ function layout(){
   sky.addColorStop(.78,"#d59fbe"); sky.addColorStop(1,"#f3cdd6");
   stars=Array.from({length:70},()=>({x:rnd(0,W),y:rnd(0,H*.5),r:rnd(.4,1.3),ph:rnd(0,6.28)}));
   ROWS = W<640 ? ROWS_M : ROWS_D;
-  let k=0; ROWS.forEach((row,ri)=>{ for(let j=0;j<row.n;j++){ const f=flowers[k++];
-    f.row=ri; f.u=(j+.5+(ri%2?.3:0)+f.jx)/(row.n+.3); } });
   const mobileScale = 1;
   hills=ROWS.map((row,ri)=>{
     const gy=H*row.g, pts=[];
     for(let x=0;x<=W+20;x+=20) pts.push([x, gy - 12*Math.sin(x*.006+ri*2) - 6*Math.sin(x*.017+ri)]);
     const blades=Array.from({length:Math.floor(W/9)},()=>({x:rnd(0,W),h:rnd(6,18)*row.s,l:rnd(-4,4)}));
-    return {pts,blades};
-  });
-  flowers.forEach(f=>{
-    const row=ROWS[f.row]; f.s=row.s*mobileScale;
-    f.x=f.u*W; f.gy=H*(row.g+f.gj)+4; f.h=H*row.h*f.hj*(W<520?1.1:1);
+    const tufts=Array.from({length:Math.max(4,Math.floor(W/70))},(_,j)=>({x:(j+.5+rnd(-.3,.3))*W/Math.max(4,Math.floor(W/70)),d:Math.random()<.5?-1:1,L:rnd(26,46)*row.s}));
+    return {pts,blades,tufts};
   });
   if(!flies.length) flies=Array.from({length:34},()=>({x:rnd(0,W),y:rnd(H*.35,H),vx:rnd(-.2,.2),vy:rnd(-.15,.15),ph:rnd(0,6.28)}));
 }
@@ -339,43 +335,22 @@ function drawLeaf(x,gy,d,L,w,lift,col){
   ctx.beginPath(); ctx.moveTo(x,gy); ctx.quadraticCurveTo(cx1,cy1+w*.4,tx,ty); ctx.stroke();
 }
 
-function drawFlower(f,t){
-  const s=f.s, h=f.h, d=f.dir, x=f.x, gy=f.gy, sw=Math.sin(t*.0007+f.ph), sw2=Math.sin(t*.0011+f.ph*1.7);
-  const dim=f.row/ (ROWS.length-1); // nearer rows a touch brighter
-  // leaves
-  drawLeaf(x,gy,-d,h*.55,5*s,.55,"#2f6a3f"); drawLeaf(x,gy,d,h*.45,4.5*s,.7,"#3a7a4a"); drawLeaf(x,gy,-d*.6,h*.35,4*s,.9,"#2c5f39");
-  // stem: upright, nodding only near the top
-  const p0=[x,gy], p1=[x+sw*s,gy-.6*h], p2=[x+d*.06*h+sw*3*s,gy-1.1*h], p3=[x+d*.3*h+sw*6*s,gy-.97*h];
-  ctx.lineCap="round";
-  ctx.strokeStyle="#3d7348"; ctx.lineWidth=3*s;
-  ctx.beginPath(); ctx.moveTo(...p0); ctx.bezierCurveTo(...p1,...p2,...p3); ctx.stroke();
-  ctx.strokeStyle="rgba(190,235,190,.35)"; ctx.lineWidth=.9*s;
-  ctx.beginPath(); ctx.moveTo(p0[0]-.9*s,p0[1]); ctx.bezierCurveTo(p1[0]-.9*s,p1[1],p2[0]-.6*s,p2[1],p3[0],p3[1]-.6*s); ctx.stroke();
-  // glow behind the cluster
-  const mid=bz(.72,p0,p1,p2,p3), gx=mid[0], gyy=mid[1]+14*s;
-  const pulse=.5+.5*Math.sin(t*.002+f.ph);
-  const ga=f.found ? .2+finaleGlow*.2 : .09+pulse*.11;
-  const rg=ctx.createRadialGradient(gx,gyy,0,gx,gyy,64*s);
-  rg.addColorStop(0,f.found?`rgba(240,150,180,${ga})`:`rgba(170,175,255,${ga})`); rg.addColorStop(1,"rgba(0,0,0,0)");
-  ctx.fillStyle=rg; ctx.beginPath(); ctx.arc(gx,gyy,64*s,0,6.29); ctx.fill();
-  // florets on hooked pedicels, alternating sides; buds at the tip
-  const spr=f.found?SPR.wine:SPR.blue, bud=f.found?SPR.budWine:SPR.budBlue;
-  const N=8; let sx=0,sy=0,cnt=0;
-  for(let i=N-1;i>=0;i--){
-    const tt=.38+i*(.62/(N-1)), P=bz(tt,p0,p1,p2,p3);
-    const isBud=i>=N-2, side=(i%2?1:-1)*d, size=isBud?(i===N-1?.8:.95):(1-i*.06);
-    const reach=(isBud?5:11)*s*size, lift=(isBud?4:9)*s*size;
-    const A=isBud?[P[0]+side*reach,P[1]-lift]:[P[0]+side*reach,P[1]+1.5*s];
-    ctx.strokeStyle="#3a6e45"; ctx.lineWidth=1.25*s;
-    ctx.beginPath(); ctx.moveTo(P[0],P[1]); ctx.quadraticCurveTo(P[0]+side*reach*.7,P[1]-lift,A[0],A[1]); ctx.stroke();
-    ctx.save(); ctx.translate(A[0],A[1]);
-    if(isBud){ ctx.rotate(Math.PI+side*(.65+sw2*.08)); const kb=size*.26*s; ctx.scale(kb,kb); ctx.drawImage(bud,-20,-4,40,80); }
-    else { const k=size*.3*s*(1+f.pop*.15); ctx.rotate(side*.06+sw2*.06); ctx.scale(k,k); ctx.drawImage(spr,-50,-4,100,110);
-      sx+=A[0]; sy+=A[1]+45*k; cnt++; }
-    ctx.restore();
-  }
-  f.cx=sx/cnt; f.cy=sy/cnt; f.hr=Math.max(46,72*s);
-  f.pop*=.9;
+function drawDrop(b,t){
+  const k=b.k*(1+b.pop*.25), found=b.idx in langOf;
+  const c=Math.cos(b.rot), sn=Math.sin(b.rot);
+  b.cx=b.x-sn*42*k; b.cy=b.y+c*42*k;
+  const ga=(found?.22:.16)+.1*Math.sin(t*.003+b.ph);
+  const rg=ctx.createRadialGradient(b.cx,b.cy,0,b.cx,b.cy,70*k);
+  rg.addColorStop(0,found?`rgba(240,150,180,${ga})`:`rgba(175,180,255,${ga})`); rg.addColorStop(1,"rgba(0,0,0,0)");
+  ctx.fillStyle=rg; ctx.beginPath(); ctx.arc(b.cx,b.cy,70*k,0,6.29); ctx.fill();
+  ctx.save(); ctx.translate(b.x,b.y); ctx.rotate(b.rot); ctx.scale(k,k);
+  // little stalk with a leaf
+  ctx.lineCap="round"; ctx.strokeStyle="#3d7348"; ctx.lineWidth=3.2;
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.quadraticCurveTo(4,-22,22,-34); ctx.stroke();
+  ctx.fillStyle="#3a7a4a"; ctx.beginPath(); ctx.moveTo(14,-28); ctx.quadraticCurveTo(30,-50,46,-46); ctx.quadraticCurveTo(32,-36,14,-28); ctx.fill();
+  ctx.drawImage(found?SPR.wine:SPR.blue,-50,-4,100,110);
+  ctx.restore();
+  b.pop*=.9;
 }
 
 function frame(t){
@@ -387,7 +362,24 @@ function frame(t){
   mg.addColorStop(0,"rgba(255,244,236,.95)"); mg.addColorStop(.25,"rgba(255,240,240,.55)"); mg.addColorStop(1,"rgba(255,240,250,0)");
   ctx.fillStyle=mg; ctx.beginPath(); ctx.arc(W*.8,H*.16,70,0,6.29); ctx.fill();
 
-  ROWS.forEach((_,ri)=>{ drawHill(ri,t); flowers.filter(f=>f.row===ri).forEach(f=>drawFlower(f,t)); });
+  ROWS.forEach((row,ri)=>{ drawHill(ri,t);
+    hills[ri].tufts.forEach(u=>{ const y=hillY(hills[ri],u.x)+3, s2=row.s;
+      drawLeaf(u.x,y,-u.d,u.L*1.2,4.5*s2,.55,"#2f6a3f"); drawLeaf(u.x,y,u.d,u.L,4*s2,.75,"#3a7a4a"); drawLeaf(u.x,y,-u.d*.5,u.L*.7,3.5*s2,1,"#2c5f39"); }); });
+
+  // falling bluebells
+  const dt=Math.min(.05,(t-lastT)/1000||0); lastT=t;
+  const maxD=W<640?3:4;
+  if(started && !letterOpen && queue.length && drops.length<maxD && t-lastSpawn>1700){
+    lastSpawn=t; const idx=queue.shift(); let x0=0;
+    for(let tries=0;tries<8;tries++){ x0=rnd(W*.14,W*.86); if(!drops.some(d=>Math.abs(d.x0-x0)<W*.18)) break; }
+    drops.push({idx,x0,x:x0,y:-70,vy:rnd(42,60),ph:rnd(0,6.28),amp:rnd(14,34),k:W<640?.58:.66,pop:0,rot:0,cx:0,cy:0});
+  }
+  drops.forEach(b=>{
+    if(!letterOpen) b.y+=b.vy*dt;
+    b.x=b.x0+Math.sin(t*.0009+b.ph)*b.amp; b.rot=Math.sin(t*.0016+b.ph)*.32;
+    drawDrop(b,t);
+  });
+  drops=drops.filter(b=>{ if(b.y>H+80){ if(!(b.idx in langOf)||finaleShown2) queue.push(b.idx); return false; } return true; });
 
   // fireflies
   flies.forEach(p=>{ p.x+=p.vx+Math.sin(t*.001+p.ph)*.2; p.y+=p.vy+Math.cos(t*.0009+p.ph)*.15 - finaleGlow*.4;
@@ -423,7 +415,7 @@ function chime(i){
 $("sound").onclick=()=>{ soundOn=!soundOn; $("sound").textContent=soundOn?"sound on":"sound off"; };
 
 /* ---------------- interaction ---------------- */
-function updateCounter(){ $("counter").textContent = foundCount===0 ? "nineteen bluebells" : `${foundCount} of 19 found`; }
+function updateCounter(){ $("counter").textContent = foundCount===0 ? "nineteen bluebells will fall" : foundCount===19 ? "all 19 caught" : `${foundCount} of 19 caught`; }
 
 $("enter").onclick=()=>{
   try{ actx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){}
@@ -436,19 +428,19 @@ $("enter").onclick=()=>{
 cv.addEventListener("pointerdown",e=>{
   if(!started||letterOpen||busy) return;
   let best=null,bd=1e9;
-  flowers.forEach(f=>{ const d=Math.hypot(e.clientX-f.cx,e.clientY-f.cy); if(d<f.hr&&d<bd){bd=d;best=f;} });
+  drops.forEach(b=>{ const d=Math.hypot(e.clientX-b.cx,e.clientY-b.cy); if(d<Math.max(52,95*b.k)&&d<bd){bd=d;best=b;} });
   if(best) openFlower(best);
 });
 cv.addEventListener("pointermove",e=>{
   if(!started||letterOpen){cv.style.cursor="default";return}
-  cv.style.cursor=flowers.some(f=>Math.hypot(e.clientX-f.cx,e.clientY-f.cy)<f.hr)?"pointer":"default";
+  cv.style.cursor=drops.some(b=>Math.hypot(e.clientX-b.cx,e.clientY-b.cy)<Math.max(52,95*b.k))?"pointer":"default";
 });
 
 let busy=false;
 function openFlower(f){
   busy=true;
-  if(!f.found){ f.found=true; f.lang=foundCount; foundCount++; updateCounter(); $("hint").classList.remove("on"); }
-  f.pop=1; chime(f.lang+2);
+  if(!(f.idx in langOf)){ langOf[f.idx]=foundCount; foundCount++; updateCounter(); $("hint").classList.remove("on"); }
+  f.lang=langOf[f.idx]; drops=drops.filter(d=>d!==f); chime(f.lang+2);
   for(let i=0;i<26;i++){ const a=rnd(0,6.28), sp=rnd(.5,2.6);
     sparks.push({x:f.cx,y:f.cy,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-.6,r:rnd(2,4.5),life:1,c:Math.random()<.5?"#ffe6b0":"#f6c9e6"}); }
   setTimeout(()=>{ showLetter(f); busy=false; },450);
@@ -492,7 +484,7 @@ $("back").onclick=()=>{
 };
 $("letterVeil").addEventListener("click",e=>{ if(e.target.id==="letterVeil") $("back").click(); });
 $("openLast").onclick=()=>{ $("finaleVeil").classList.remove("open"); setTimeout(()=>{ $("lastVeil").classList.add("open"); chime(2); },500); };
-$("lastBack").onclick=()=>{ $("lastVeil").classList.remove("open"); setTimeout(()=>letterOpen=false,400); };
+$("lastBack").onclick=()=>{ $("lastVeil").classList.remove("open"); finaleShown2=true; refill(true); setTimeout(()=>letterOpen=false,400); };
 </script>
 </body>
 </html>
