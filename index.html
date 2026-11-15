@@ -150,7 +150,7 @@
    or  media: "media/dance.mp4"
    ============================================================== */
 const REASONS = [
-  { title:"Our legendary chat", text:"September 23rd. We talked for so long and it never once felt like enough. I still smile thinking about that chat.", media:"media/chat.mp4" },
+  { title:"Our legendary chat", text:"September 23rd. We talked for so long and it never once felt like enough. I still smile thinking about that chat.", media:"media/chat.jpg", pos:"50% 0%" },
   { title:"October 11", text:"The day we asked each other out. I'm grateful we were both brave at the same time.", media:"media/oct11.mp4" },
   { title:"Our first kiss", text:"Some moments stay with you. That one stayed with me.", media:"media/kiss.mp4" },
   { title:"Our first keke ride", text:"Squeezed in, bumping down the road. Somehow one of my favourite rides ever.", media:"media/keke.mp4" },
@@ -371,7 +371,7 @@ function showLetter(f){
       const snd=document.createElement("div"); snd.className="snd"; snd.textContent="tap for sound ♪";
       const toggle=()=>{ v.muted=!v.muted; snd.textContent=v.muted?"tap for sound ♪":"sound on ♪"; v.play().catch(()=>{}); };
       v.onclick=toggle; snd.onclick=toggle; p.appendChild(snd); }
-    else { const im=new Image(); im.src=r.media; im.alt=r.title; p.appendChild(im); }
+    else { const im=new Image(); im.src=r.media; im.alt=r.title; if(r.pos) im.style.objectPosition=r.pos; p.appendChild(im); }
   } else { p.classList.remove("has"); $("ornament").classList.remove("hide"); }
   $("phrase").textContent=phrase; $("lang").textContent=lang;
   const w=$("whisper"); w.classList.remove("on");
